@@ -17,14 +17,16 @@ A .NET 8 ASP.NET Core Web API for managing todo lists, users, and items. This AP
 
 - **.NET 8**: Latest .NET framework
 - **ASP.NET Core Web API**: Web API framework
-- **Entity Framework Core**: ORM with SQL Server database provider
-- **SQL Server LocalDB**: Local database for development
+- **Entity Framework Core**: ORM with multi-database support
+- **SQL Server**: Production database (configurable)
+- **SQLite**: Development/testing database
 - **Swagger/OpenAPI**: API documentation and testing interface
 
 ## Prerequisites
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
-- [SQL Server LocalDB](https://docs.microsoft.com/en-us/sql/database-engine/configure-windows/sql-server-express-localdb) (included with Visual Studio or SQL Server Express)
+- **For Production**: [SQL Server LocalDB](https://docs.microsoft.com/en-us/sql/database-engine/configure-windows/sql-server-express-localdb) (included with Visual Studio or SQL Server Express)
+- **For Development/Testing**: SQLite (included automatically)
 
 ## Getting Started
 
@@ -189,7 +191,12 @@ dotnet run --environment Development
 ```
 
 ### Database
-The application uses SQL Server LocalDB for data persistence. In Development environment, the database is automatically seeded with sample data including:
+The application uses different database providers based on the environment:
+
+- **Development**: SQLite database (`todolist_dev.db`) for easy setup and testing
+- **Production**: SQL Server with connection string configuration
+
+In Development environment, the database is automatically seeded with sample data including:
 
 - **Sample Users**: Alice Johnson, Bob Smith, Carol Davis
 - **Sample Lists**: Personal Tasks, Work Projects, Shopping List, Home Improvement
@@ -206,6 +213,11 @@ dotnet ef database update
 # Remove last migration (if not applied)
 dotnet ef migrations remove
 ```
+
+#### Database Configuration
+The application automatically selects the appropriate database provider:
+- SQLite for Development environment (easier setup, no dependencies)
+- SQL Server for Production environment (better performance, enterprise features)
 
 ## Contributing
 
