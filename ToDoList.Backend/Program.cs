@@ -7,13 +7,24 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Add services to the container.
 builder.Services.AddDbContext<ToDoListDbContext>(options =>
-    options.UseInMemoryDatabase("ToDoListDb"));
+    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
 var app = builder.Build();
+
+// Ensure database is created and seed data in development
+if (app.Environment.IsDevelopment())
+{
+    using (var scope = app.Services.CreateScope())
+    {
+        var context = scope.ServiceProvider.GetRequiredService<ToDoListDbContext>();
+        await context.Database.EnsureCreatedAsync();
+        await SeedDevelopmentDataAsync(context);
+    }
+}
 
 // Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
@@ -124,3 +135,63 @@ app.MapDelete("/items/{id}", async (int id, ToDoListDbContext db) =>
 .WithOpenApi();
 
 app.Run();
+
+// Data seeding method for development environment
+static async Task SeedDevelopmentDataAsync(ToDoListDbContext context)
+{
+    // Check if data already exists
+    if (await context.Users.AnyAsync())
+    {
+        return; // Database has been seeded
+    }
+
+    // Create sample users
+    var users = new[]
+    {
+        new User { Name = "Alice Johnson" },
+        new User { Name = "Bob Smith" },
+        new User { Name = "Carol Davis" }
+    };
+
+    context.Users.AddRange(users);
+    await context.SaveChangesAsync();
+
+    // Create sample lists
+    var lists = new[]
+    {
+        new List { Name = "Personal Tasks", OwnerID = users[0].Id },
+        new List { Name = "Work Projects", OwnerID = users[0].Id },
+        new List { Name = "Shopping List", OwnerID = users[1].Id },
+        new List { Name = "Home Improvement", OwnerID = users[2].Id }
+    };
+
+    context.Lists.AddRange(lists);
+    await context.SaveChangesAsync();
+
+    // Create sample items
+    var items = new[]
+    {
+        // Personal Tasks items
+        new Item { Name = "Review monthly budget", ListId = lists[0].Id },
+        new Item { Name = "Schedule dentist appointment", ListId = lists[0].Id },
+        new Item { Name = "Update resume", ListId = lists[0].Id },
+        
+        // Work Projects items
+        new Item { Name = "Prepare quarterly report", ListId = lists[1].Id },
+        new Item { Name = "Review team performance", ListId = lists[1].Id },
+        new Item { Name = "Plan next sprint", ListId = lists[1].Id },
+        
+        // Shopping List items
+        new Item { Name = "Buy groceries", ListId = lists[2].Id },
+        new Item { Name = "Pick up dry cleaning", ListId = lists[2].Id },
+        new Item { Name = "Get new phone charger", ListId = lists[2].Id },
+        
+        // Home Improvement items
+        new Item { Name = "Paint living room", ListId = lists[3].Id },
+        new Item { Name = "Fix kitchen faucet", ListId = lists[3].Id },
+        new Item { Name = "Install new light fixtures", ListId = lists[3].Id }
+    };
+
+    context.Items.AddRange(items);
+    await context.SaveChangesAsync();
+}

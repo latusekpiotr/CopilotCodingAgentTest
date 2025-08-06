@@ -7,7 +7,9 @@ A .NET 8 ASP.NET Core Web API for managing todo lists, users, and items. This AP
 - **User Management**: Create, update, and delete users
 - **List Management**: Create and delete todo lists owned by users  
 - **Item Management**: Add, edit, and remove items from todo lists
-- **In-Memory Database**: Uses Entity Framework Core with in-memory storage
+- **SQL Server Database**: Uses Entity Framework Core with SQL Server LocalDB
+- **Database Migrations**: Entity Framework migrations for database schema management
+- **Data Seeding**: Automatic population of sample data in development environment
 - **API Documentation**: Integrated Swagger/OpenAPI documentation
 - **RESTful Design**: Clean REST API endpoints following standard conventions
 
@@ -15,12 +17,14 @@ A .NET 8 ASP.NET Core Web API for managing todo lists, users, and items. This AP
 
 - **.NET 8**: Latest .NET framework
 - **ASP.NET Core Web API**: Web API framework
-- **Entity Framework Core**: ORM with in-memory database provider
+- **Entity Framework Core**: ORM with SQL Server database provider
+- **SQL Server LocalDB**: Local database for development
 - **Swagger/OpenAPI**: API documentation and testing interface
 
 ## Prerequisites
 
 - [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [SQL Server LocalDB](https://docs.microsoft.com/en-us/sql/database-engine/configure-windows/sql-server-express-localdb) (included with Visual Studio or SQL Server Express)
 
 ## Getting Started
 
@@ -30,12 +34,18 @@ git clone https://github.com/latusekpiotr/CopilotCodingAgentTest.git
 cd CopilotCodingAgentTest
 ```
 
-### 2. Build the Project
+### 2. Setup Database
+```bash
+cd ToDoList.Backend
+dotnet ef database update
+```
+
+### 3. Build the Project
 ```bash
 dotnet build
 ```
 
-### 3. Run the Application
+### 4. Run the Application
 ```bash
 cd ToDoList.Backend
 dotnet run
@@ -45,7 +55,9 @@ The API will be available at:
 - HTTP: `http://localhost:5011`
 - HTTPS: `https://localhost:7011`
 
-### 4. Access API Documentation
+**Note**: When running in Development environment, the application will automatically seed the database with sample data for testing.
+
+### 5. Access API Documentation
 Once running, visit the Swagger UI at:
 - `https://localhost:7011/swagger` (or `http://localhost:5011/swagger`)
 
@@ -177,7 +189,23 @@ dotnet run --environment Development
 ```
 
 ### Database
-The application uses an in-memory database, so data is reset when the application restarts. This is suitable for development and testing purposes.
+The application uses SQL Server LocalDB for data persistence. In Development environment, the database is automatically seeded with sample data including:
+
+- **Sample Users**: Alice Johnson, Bob Smith, Carol Davis
+- **Sample Lists**: Personal Tasks, Work Projects, Shopping List, Home Improvement
+- **Sample Items**: Various todo items distributed across the lists
+
+#### Database Commands
+```bash
+# Create a new migration
+dotnet ef migrations add <MigrationName>
+
+# Update database to latest migration
+dotnet ef database update
+
+# Remove last migration (if not applied)
+dotnet ef migrations remove
+```
 
 ## Contributing
 
