@@ -148,21 +148,6 @@ app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = Dat
 .WithName("HealthCheck")
 .WithOpenApi();
 
-// Debug endpoint to display all users including password hashes (for troubleshooting only)
-app.MapGet("/debug/users", async (ToDoListDbContext db, ILogger<Program> logger) =>
-{
-    logger.LogInformation("Debug users endpoint called");
-    
-    var users = await db.Users
-        .Select(u => new DebugUserResponse(u.Id, u.Name, u.Username, u.PasswordHash, u.IsAdmin))
-        .ToListAsync();
-    
-    logger.LogInformation("Returning {UserCount} users with debug information", users.Count);
-    return Results.Ok(users);
-})
-.WithName("DebugUsers")
-.WithOpenApi();
-
 // Authentication endpoints
 app.MapPost("/auth/login", async (LoginRequest request, ToDoListDbContext db, IAuthService authService, ILogger<Program> logger) =>
 {

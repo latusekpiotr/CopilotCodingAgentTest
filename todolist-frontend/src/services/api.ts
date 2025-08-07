@@ -3,7 +3,6 @@ import {
   LoginRequest,
   LoginResponse,
   User,
-  DebugUser,
   CreateUserRequest,
   EditUserRequest,
   UpdatePasswordRequest,
@@ -67,12 +66,6 @@ class ApiService {
   // User methods
   async getUsers(): Promise<User[]> {
     const response = await this.api.get<User[]>('/users');
-    return response.data;
-  }
-
-  // Debug method to get users with password hashes (for troubleshooting only)
-  async getDebugUsers(): Promise<DebugUser[]> {
-    const response = await this.api.get<DebugUser[]>('/debug/users');
     return response.data;
   }
 
