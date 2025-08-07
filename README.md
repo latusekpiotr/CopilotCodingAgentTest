@@ -4,9 +4,11 @@ A .NET 8 ASP.NET Core Web API for managing todo lists, users, and items. This AP
 
 ## Features
 
-- **User Management**: Create, update, and delete users
-- **List Management**: Create and delete todo lists owned by users  
-- **Item Management**: Add, edit, and remove items from todo lists
+- **User Authentication**: JWT-based authentication with secure password hashing
+- **User Management**: Create, update, and delete users (admin-only operations)
+- **List Management**: Create and delete todo lists owned by authenticated users  
+- **Item Management**: Add, edit, and remove items from todo lists (owner access only)
+- **Role-Based Authorization**: Admin and regular user roles with appropriate permissions
 - **SQL Server Database**: Uses Entity Framework Core with SQL Server LocalDB
 - **Database Migrations**: Entity Framework migrations for database schema management
 - **Data Seeding**: Automatic population of sample data in development environment
@@ -68,14 +70,18 @@ Once running, visit the Swagger UI at:
 ```
 ToDoList.Backend/
 ├── Contracts/           # Request/Response DTOs
+│   ├── AuthContracts.cs # Authentication contracts
 │   ├── ItemContracts.cs
 │   ├── ListContracts.cs
 │   └── UserContracts.cs
 ├── Data/               # Database context
+├── Migrations/         # Database migrations
 ├── Models/             # Entity models
 │   ├── Item.cs
 │   ├── List.cs
 │   └── User.cs
+├── Services/           # Business logic services
+│   └── AuthService.cs  # Authentication and password hashing
 ├── Program.cs          # Application entry point and API endpoints
 ├── appsettings.json    # Configuration
 └── ToDoList.Backend.csproj
@@ -83,21 +89,52 @@ ToDoList.Backend/
 
 ## API Endpoints
 
+### Authentication
+
+| Method | Endpoint | Description | Authorization |
+|--------|----------|-------------|---------------|
+| POST | `/auth/login` | User login with username/password | Public |
+
+#### Login
+```http
+POST /auth/login
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "password": "password123"
+}
+```
+
+**Response:**
+```json
+{
+  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "userId": 1,
+  "name": "Alice Johnson",
+  "isAdmin": true
+}
+```
+
 ### Users
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/users` | Create a new user |
-| PUT | `/users/{id}` | Update an existing user |
-| DELETE | `/users/{id}` | Delete a user |
+| Method | Endpoint | Description | Authorization |
+|--------|----------|-------------|---------------|
+| POST | `/users` | Create a new user | Admin only |
+| PUT | `/users/{id}` | Update an existing user | Admin only |
+| DELETE | `/users/{id}` | Delete a user | Admin only |
 
 #### Create User
 ```http
 POST /users
 Content-Type: application/json
+Authorization: Bearer {admin-token}
 
 {
-  "name": "John Doe"
+  "name": "John Doe",
+  "username": "john",
+  "password": "securePassword123",
+  "isAdmin": false
 }
 ```
 
@@ -105,6 +142,7 @@ Content-Type: application/json
 ```http
 PUT /users/1
 Content-Type: application/json
+Authorization: Bearer {admin-token}
 
 {
   "name": "Jane Doe"
@@ -113,15 +151,16 @@ Content-Type: application/json
 
 ### Lists
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/lists` | Create a new todo list |
-| DELETE | `/lists/{id}` | Delete a todo list |
+| Method | Endpoint | Description | Authorization |
+|--------|----------|-------------|---------------|
+| POST | `/lists` | Create a new todo list | Authenticated users |
+| DELETE | `/lists/{id}` | Delete a todo list | List owner or admin |
 
 #### Create List
 ```http
 POST /lists
 Content-Type: application/json
+Authorization: Bearer {user-token}
 
 {
   "name": "Shopping List",
@@ -129,18 +168,21 @@ Content-Type: application/json
 }
 ```
 
+**Note**: Users can only create lists for themselves unless they are admins.
+
 ### Items
 
-| Method | Endpoint | Description |
-|--------|----------|-------------|
-| POST | `/lists/{listId}/items` | Add an item to a list |
-| PUT | `/items/{id}` | Update an item |
-| DELETE | `/items/{id}` | Remove an item |
+| Method | Endpoint | Description | Authorization |
+|--------|----------|-------------|---------------|
+| POST | `/lists/{listId}/items` | Add an item to a list | List owner or admin |
+| PUT | `/items/{id}` | Update an item | List owner or admin |
+| DELETE | `/items/{id}` | Remove an item | List owner or admin |
 
 #### Add Item
 ```http
 POST /lists/1/items
 Content-Type: application/json
+Authorization: Bearer {user-token}
 
 {
   "name": "Buy milk"
@@ -151,6 +193,7 @@ Content-Type: application/json
 ```http
 PUT /items/1
 Content-Type: application/json
+Authorization: Bearer {user-token}
 
 {
   "name": "Buy organic milk"
@@ -161,7 +204,10 @@ Content-Type: application/json
 
 ### User
 - `Id` (int): Unique identifier
-- `Name` (string): User's name
+- `Name` (string): User's display name
+- `Username` (string): Unique login username
+- `PasswordHash` (string): BCrypt hashed password
+- `IsAdmin` (bool): Administrative privileges flag
 - `Lists` (ICollection<List>): User's todo lists
 
 ### List  
@@ -176,6 +222,32 @@ Content-Type: application/json
 - `Name` (string): Item description
 - `ListId` (int): ID of the list this item belongs to
 - `List` (List): Navigation property to parent list
+
+## Authentication and Security
+
+The API uses JWT (JSON Web Token) based authentication with the following security features:
+
+### Password Security
+- **BCrypt Hashing**: All passwords are hashed using BCrypt with automatic salt generation
+- **Secure Storage**: Plain text passwords are never stored in the database
+- **Password Requirements**: Passwords can be enforced at the application level
+
+### JWT Token Authentication
+- **Token Expiration**: JWT tokens expire after 7 days
+- **Claims-Based**: Tokens include user ID, username, and admin status
+- **Stateless**: No server-side session storage required
+
+### Authorization Levels
+- **Public Endpoints**: Login endpoint accessible without authentication
+- **Authenticated Users**: List and item management requires valid JWT token
+- **Admin Only**: User management operations restricted to admin users
+- **Resource Ownership**: Users can only access their own lists and items (unless admin)
+
+### API Security Headers
+When making authenticated requests, include the JWT token in the Authorization header:
+```
+Authorization: Bearer {your-jwt-token}
+```
 
 ## Development
 
@@ -198,9 +270,16 @@ The application uses different database providers based on the environment:
 
 In Development environment, the database is automatically seeded with sample data including:
 
-- **Sample Users**: Alice Johnson, Bob Smith, Carol Davis
+- **Sample Users**: 
+  - Alice Johnson (username: `alice`, password: `password123`, admin: true)
+  - Bob Smith (username: `bob`, password: `password123`, admin: false)
+  - Carol Davis (username: `carol`, password: `password123`, admin: false)
 - **Sample Lists**: Personal Tasks, Work Projects, Shopping List, Home Improvement
 - **Sample Items**: Various todo items distributed across the lists
+
+**Default Login Credentials for Testing:**
+- **Admin User**: alice / password123
+- **Regular Users**: bob / password123, carol / password123
 
 #### Database Commands
 ```bash
