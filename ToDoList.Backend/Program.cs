@@ -474,6 +474,11 @@ app.MapDelete("/items/{id}", async (int id, ToDoListDbContext db, ClaimsPrincipa
 .WithOpenApi()
 .RequireAuthorization();
 
+// Fallback route for SPA client-side routing
+// This ensures that routes like /login, /dashboard are served with index.html
+// allowing React Router to handle client-side navigation
+app.MapFallbackToFile("index.html");
+
 app.Run();
 
 // Data seeding method for development environment
