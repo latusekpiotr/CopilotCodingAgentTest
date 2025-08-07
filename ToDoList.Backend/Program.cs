@@ -16,7 +16,19 @@ builder.Services.AddDbContext<ToDoListDbContext>(options =>
     // Use SQLite for development and testing environments, SQL Server for production
     if (builder.Environment.IsDevelopment())
     {
-        options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection"));
+        // Check if running in Azure App Service (which has read-only file system)
+        var isAzure = !string.IsNullOrEmpty(builder.Configuration["WEBSITE_SITE_NAME"]);
+        
+        if (isAzure)
+        {
+            // Use temporary directory for SQLite in Azure dev environment due to file system constraints
+            options.UseSqlite("Data Source=/tmp/todolist_dev.db");
+        }
+        else
+        {
+            // Use file-based SQLite for local development
+            options.UseSqlite(builder.Configuration.GetConnectionString("DefaultConnection"));
+        }
     }
     else
     {
@@ -84,7 +96,14 @@ if (app.Environment.IsDevelopment())
     {
         var context = scope.ServiceProvider.GetRequiredService<ToDoListDbContext>();
         await context.Database.EnsureCreatedAsync();
-        await SeedDevelopmentDataAsync(context);
+        
+        // For Azure environments, always seed data since /tmp is cleared on restart
+        // For local development, only seed if database is empty  
+        var isAzure = !string.IsNullOrEmpty(app.Configuration["WEBSITE_SITE_NAME"]);
+        if (isAzure || !await context.Users.AnyAsync())
+        {
+            await SeedDevelopmentDataAsync(context);
+        }
     }
 }
 
