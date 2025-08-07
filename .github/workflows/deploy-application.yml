@@ -52,31 +52,6 @@ jobs:
           --output ./backend-publish \
           --no-build
 
-    - name: Install Frontend dependencies
-      working-directory: ./todolist-frontend
-      run: npm ci
-
-    - name: Build Frontend
-      working-directory: ./todolist-frontend
-      run: npm run build
-
-    - name: Prepare deployment package
-      run: |
-        # Create deployment directory
-        mkdir -p ./deployment-package
-        
-        # Copy backend files
-        cp -r ./backend-publish/* ./deployment-package/
-        
-        # Copy frontend build to wwwroot (served as static files by .NET)
-        mkdir -p ./deployment-package/wwwroot
-        cp -r ./todolist-frontend/build/* ./deployment-package/wwwroot/
-        
-        # Create deployment zip
-        cd ./deployment-package
-        zip -r ../deployment.zip .
-        cd ..
-
     - name: Azure Login
       uses: azure/login@v2
       with:
@@ -98,6 +73,35 @@ jobs:
         
         echo "app-name=$app_name" >> $GITHUB_OUTPUT
         echo "✅ Found App Service: $app_name"
+
+    - name: Install Frontend dependencies
+      working-directory: ./todolist-frontend
+      run: npm ci
+
+    - name: Build Frontend
+      working-directory: ./todolist-frontend
+      run: |
+        # Set the correct API URL for Azure deployment - no /api prefix needed
+        export REACT_APP_API_URL="https://${{ steps.get_app_name.outputs.app-name }}.azurewebsites.net"
+        echo "Building frontend with API URL: $REACT_APP_API_URL"
+        npm run build
+
+    - name: Prepare deployment package
+      run: |
+        # Create deployment directory
+        mkdir -p ./deployment-package
+        
+        # Copy backend files
+        cp -r ./backend-publish/* ./deployment-package/
+        
+        # Copy frontend build to wwwroot (served as static files by .NET)
+        mkdir -p ./deployment-package/wwwroot
+        cp -r ./todolist-frontend/build/* ./deployment-package/wwwroot/
+        
+        # Create deployment zip
+        cd ./deployment-package
+        zip -r ../deployment.zip .
+        cd ..
 
     - name: Deploy to Azure App Service
       run: |
@@ -151,7 +155,7 @@ jobs:
         echo "🔧 Environment: ${{ env.ENVIRONMENT }}"
         echo ""
         echo "Frontend is available at: ${{ steps.get_url.outputs.app-url }}"
-        echo "Backend API is available at: ${{ steps.get_url.outputs.app-url }}/api"
+        echo "Backend API is available at: ${{ steps.get_url.outputs.app-url }}"
         echo "Swagger UI is available at: ${{ steps.get_url.outputs.app-url }}/swagger"
 
     - name: Azure Logout
