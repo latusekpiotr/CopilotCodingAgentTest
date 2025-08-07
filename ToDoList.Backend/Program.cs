@@ -50,11 +50,20 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins(
-                "http://localhost:3000", 
-                "https://localhost:3000"
-                // Azure domains will be added dynamically in production
-              )
+        var allowedOrigins = new List<string>
+        {
+            "http://localhost:3000", 
+            "https://localhost:3000"
+        };
+
+        // Add Azure App Service domain if running in Azure
+        var azureWebsiteName = builder.Configuration["WEBSITE_SITE_NAME"];
+        if (!string.IsNullOrEmpty(azureWebsiteName))
+        {
+            allowedOrigins.Add($"https://{azureWebsiteName}.azurewebsites.net");
+        }
+
+        policy.WithOrigins(allowedOrigins.ToArray())
               .SetIsOriginAllowedToAllowWildcardSubdomains()
               .AllowAnyHeader()
               .AllowAnyMethod()

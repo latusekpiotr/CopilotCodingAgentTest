@@ -49,7 +49,7 @@ resource appService 'Microsoft.Web/sites@2023-01-01' = {
       appSettings: [
         {
           name: 'ASPNETCORE_ENVIRONMENT'
-          value: 'Production'
+          value: environmentName == 'dev' ? 'Development' : 'Production'
         }
         {
           name: 'WEBSITE_RUN_FROM_PACKAGE'
