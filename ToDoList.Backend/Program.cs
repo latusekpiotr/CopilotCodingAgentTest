@@ -45,6 +45,18 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddAuthorization();
 
+// Add CORS
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("AllowFrontend", policy =>
+    {
+        policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
+              .AllowAnyHeader()
+              .AllowAnyMethod()
+              .AllowCredentials();
+    });
+});
+
 // Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
@@ -70,6 +82,9 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseHttpsRedirection();
+
+// Use CORS
+app.UseCors("AllowFrontend");
 
 // Add authentication and authorization middleware
 app.UseAuthentication();
@@ -151,6 +166,24 @@ app.MapPut("/users/{id}", async (int id, EditUserRequest request, ToDoListDbCont
 .WithOpenApi()
 .RequireAuthorization();
 
+app.MapPut("/users/{id}/password", async (int id, UpdatePasswordRequest request, ToDoListDbContext db, IAuthService authService, ClaimsPrincipal currentUser) =>
+{
+    if (!IsCurrentUserAdmin(currentUser))
+    {
+        return Results.Forbid();
+    }
+    
+    var user = await db.Users.FindAsync(id);
+    if (user is null) return Results.NotFound();
+    
+    user.PasswordHash = authService.HashPassword(request.Password);
+    await db.SaveChangesAsync();
+    return Results.Ok(new UserResponse(user.Id, user.Name, user.Username, user.IsAdmin));
+})
+.WithName("UpdateUserPassword")
+.WithOpenApi()
+.RequireAuthorization();
+
 app.MapDelete("/users/{id}", async (int id, ToDoListDbContext db, ClaimsPrincipal currentUser) =>
 {
     if (!IsCurrentUserAdmin(currentUser))
@@ -169,7 +202,45 @@ app.MapDelete("/users/{id}", async (int id, ToDoListDbContext db, ClaimsPrincipa
 .WithOpenApi()
 .RequireAuthorization();
 
+// Get all users (Admin only)
+app.MapGet("/users", async (ToDoListDbContext db, ClaimsPrincipal currentUser) =>
+{
+    if (!IsCurrentUserAdmin(currentUser))
+    {
+        return Results.Forbid();
+    }
+    
+    var users = await db.Users
+        .Select(u => new UserResponse(u.Id, u.Name, u.Username, u.IsAdmin))
+        .ToListAsync();
+    return Results.Ok(users);
+})
+.WithName("GetUsers")
+.WithOpenApi()
+.RequireAuthorization();
+
 // List endpoints (Authenticated users only)
+app.MapGet("/lists", async (ToDoListDbContext db, ClaimsPrincipal currentUser) =>
+{
+    var currentUserId = GetCurrentUserId(currentUser);
+    if (currentUserId == 0) return Results.Unauthorized();
+    
+    // Admin can see all lists, users can see only their own
+    var lists = IsCurrentUserAdmin(currentUser) 
+        ? await db.Lists.Include(l => l.Owner)
+            .Select(l => new { l.Id, l.Name, l.OwnerID, OwnerName = l.Owner.Name })
+            .ToListAsync()
+        : await db.Lists.Include(l => l.Owner)
+            .Where(l => l.OwnerID == currentUserId)
+            .Select(l => new { l.Id, l.Name, l.OwnerID, OwnerName = l.Owner.Name })
+            .ToListAsync();
+    
+    return Results.Ok(lists);
+})
+.WithName("GetLists")
+.WithOpenApi()
+.RequireAuthorization();
+
 app.MapPost("/lists", async (CreateListRequest request, ToDoListDbContext db, ClaimsPrincipal currentUser) =>
 {
     var currentUserId = GetCurrentUserId(currentUser);
@@ -190,6 +261,28 @@ app.MapPost("/lists", async (CreateListRequest request, ToDoListDbContext db, Cl
     return Results.Ok(new ListResponse(list.Id, list.Name, list.OwnerID));
 })
 .WithName("CreateList")
+.WithOpenApi()
+.RequireAuthorization();
+
+app.MapPut("/lists/{id}", async (int id, EditListRequest request, ToDoListDbContext db, ClaimsPrincipal currentUser) =>
+{
+    var currentUserId = GetCurrentUserId(currentUser);
+    if (currentUserId == 0) return Results.Unauthorized();
+    
+    var list = await db.Lists.FindAsync(id);
+    if (list is null) return Results.NotFound();
+    
+    // Users can only edit their own lists unless they are admin
+    if (!IsCurrentUserAdmin(currentUser) && list.OwnerID != currentUserId)
+    {
+        return Results.Forbid();
+    }
+    
+    list.Name = request.Name;
+    await db.SaveChangesAsync();
+    return Results.Ok(new ListResponse(list.Id, list.Name, list.OwnerID));
+})
+.WithName("EditList")
 .WithOpenApi()
 .RequireAuthorization();
 
@@ -216,6 +309,31 @@ app.MapDelete("/lists/{id}", async (int id, ToDoListDbContext db, ClaimsPrincipa
 .RequireAuthorization();
 
 // Item endpoints (Authenticated users only)
+app.MapGet("/lists/{listId}/items", async (int listId, ToDoListDbContext db, ClaimsPrincipal currentUser) =>
+{
+    var currentUserId = GetCurrentUserId(currentUser);
+    if (currentUserId == 0) return Results.Unauthorized();
+    
+    var list = await db.Lists.FindAsync(listId);
+    if (list is null) return Results.BadRequest("List not found");
+    
+    // Users can only view items in their own lists unless they are admin
+    if (!IsCurrentUserAdmin(currentUser) && list.OwnerID != currentUserId)
+    {
+        return Results.Forbid();
+    }
+    
+    var items = await db.Items
+        .Where(i => i.ListId == listId)
+        .Select(i => new ItemResponse(i.Id, i.Name, i.ListId))
+        .ToListAsync();
+    
+    return Results.Ok(items);
+})
+.WithName("GetItems")
+.WithOpenApi()
+.RequireAuthorization();
+
 app.MapPost("/lists/{listId}/items", async (int listId, AddItemRequest request, ToDoListDbContext db, ClaimsPrincipal currentUser) =>
 {
     var currentUserId = GetCurrentUserId(currentUser);

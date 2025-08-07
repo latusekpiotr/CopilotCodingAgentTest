@@ -4,4 +4,6 @@ public record CreateUserRequest(string Name, string Username, string Password, b
 
 public record EditUserRequest(string Name);
 
+public record UpdatePasswordRequest(string Password);
+
 public record UserResponse(int Id, string Name, string Username, bool IsAdmin);
