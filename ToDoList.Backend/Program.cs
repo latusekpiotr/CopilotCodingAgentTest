@@ -302,15 +302,11 @@ app.MapGet("/lists", async (ToDoListDbContext db, ClaimsPrincipal currentUser) =
     var currentUserId = GetCurrentUserId(currentUser);
     if (currentUserId == 0) return Results.Unauthorized();
     
-    // Admin can see all lists, users can see only their own
-    var lists = IsCurrentUserAdmin(currentUser) 
-        ? await db.Lists.Include(l => l.Owner)
-            .Select(l => new { l.Id, l.Name, l.OwnerID, OwnerName = l.Owner.Name })
-            .ToListAsync()
-        : await db.Lists.Include(l => l.Owner)
-            .Where(l => l.OwnerID == currentUserId)
-            .Select(l => new { l.Id, l.Name, l.OwnerID, OwnerName = l.Owner.Name })
-            .ToListAsync();
+    // Users can see only their own lists
+    var lists = await db.Lists.Include(l => l.Owner)
+        .Where(l => l.OwnerID == currentUserId)
+        .Select(l => new { l.Id, l.Name, l.OwnerID, OwnerName = l.Owner.Name })
+        .ToListAsync();
     
     return Results.Ok(lists);
 })
@@ -323,8 +319,8 @@ app.MapPost("/lists", async (CreateListRequest request, ToDoListDbContext db, Cl
     var currentUserId = GetCurrentUserId(currentUser);
     if (currentUserId == 0) return Results.Unauthorized();
     
-    // Users can only create lists for themselves unless they are admin
-    if (!IsCurrentUserAdmin(currentUser) && request.OwnerID != currentUserId)
+    // Users can only create lists for themselves
+    if (request.OwnerID != currentUserId)
     {
         return Results.Forbid();
     }
@@ -349,8 +345,8 @@ app.MapPut("/lists/{id}", async (int id, EditListRequest request, ToDoListDbCont
     var list = await db.Lists.FindAsync(id);
     if (list is null) return Results.NotFound();
     
-    // Users can only edit their own lists unless they are admin
-    if (!IsCurrentUserAdmin(currentUser) && list.OwnerID != currentUserId)
+    // Users can only edit their own lists
+    if (list.OwnerID != currentUserId)
     {
         return Results.Forbid();
     }
@@ -371,8 +367,8 @@ app.MapDelete("/lists/{id}", async (int id, ToDoListDbContext db, ClaimsPrincipa
     var list = await db.Lists.FindAsync(id);
     if (list is null) return Results.NotFound();
     
-    // Users can only delete their own lists unless they are admin
-    if (!IsCurrentUserAdmin(currentUser) && list.OwnerID != currentUserId)
+    // Users can only delete their own lists
+    if (list.OwnerID != currentUserId)
     {
         return Results.Forbid();
     }
@@ -394,8 +390,8 @@ app.MapGet("/lists/{listId}/items", async (int listId, ToDoListDbContext db, Cla
     var list = await db.Lists.FindAsync(listId);
     if (list is null) return Results.BadRequest("List not found");
     
-    // Users can only view items in their own lists unless they are admin
-    if (!IsCurrentUserAdmin(currentUser) && list.OwnerID != currentUserId)
+    // Users can only view items in their own lists
+    if (list.OwnerID != currentUserId)
     {
         return Results.Forbid();
     }
@@ -419,8 +415,8 @@ app.MapPost("/lists/{listId}/items", async (int listId, AddItemRequest request, 
     var list = await db.Lists.FindAsync(listId);
     if (list is null) return Results.BadRequest("List not found");
     
-    // Users can only add items to their own lists unless they are admin
-    if (!IsCurrentUserAdmin(currentUser) && list.OwnerID != currentUserId)
+    // Users can only add items to their own lists
+    if (list.OwnerID != currentUserId)
     {
         return Results.Forbid();
     }
@@ -442,8 +438,8 @@ app.MapPut("/items/{id}", async (int id, EditItemRequest request, ToDoListDbCont
     var item = await db.Items.Include(i => i.List).FirstOrDefaultAsync(i => i.Id == id);
     if (item is null) return Results.NotFound();
     
-    // Users can only edit items in their own lists unless they are admin
-    if (!IsCurrentUserAdmin(currentUser) && item.List.OwnerID != currentUserId)
+    // Users can only edit items in their own lists
+    if (item.List.OwnerID != currentUserId)
     {
         return Results.Forbid();
     }
@@ -464,8 +460,8 @@ app.MapDelete("/items/{id}", async (int id, ToDoListDbContext db, ClaimsPrincipa
     var item = await db.Items.Include(i => i.List).FirstOrDefaultAsync(i => i.Id == id);
     if (item is null) return Results.NotFound();
     
-    // Users can only delete items in their own lists unless they are admin
-    if (!IsCurrentUserAdmin(currentUser) && item.List.OwnerID != currentUserId)
+    // Users can only delete items in their own lists
+    if (item.List.OwnerID != currentUserId)
     {
         return Results.Forbid();
     }
