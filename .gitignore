@@ -71,3 +71,8 @@ todolist-frontend/.env.production.local
 todolist-frontend/npm-debug.log*
 todolist-frontend/yarn-debug.log*
 todolist-frontend/yarn-error.log*
+
+# CI/CD artifacts
+deployment-package/
+deployment.zip
+backend-publish/

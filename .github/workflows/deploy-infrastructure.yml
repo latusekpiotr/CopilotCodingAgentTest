@@ -1,0 +1,83 @@
+name: Deploy Infrastructure to Azure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      location:
+        description: 'Azure region for deployment'
+        required: true
+        default: 'West Europe'
+        type: choice
+        options:
+          - West Europe
+          - East US
+          - East US 2
+          - Central US
+
+env:
+  AZURE_RESOURCE_GROUP: 'rg-todolist-${{ github.event.inputs.environment }}'
+  LOCATION: '${{ github.event.inputs.location }}'
+  ENVIRONMENT: '${{ github.event.inputs.environment }}'
+
+jobs:
+  deploy-infrastructure:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Create Resource Group
+      run: |
+        az group create \
+          --name ${{ env.AZURE_RESOURCE_GROUP }} \
+          --location "${{ env.LOCATION }}" \
+          --tags Environment=${{ env.ENVIRONMENT }} Project=TodoList
+
+    - name: Deploy Bicep template
+      id: deploy
+      run: |
+        deployment_output=$(az deployment group create \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --template-file infrastructure/main.bicep \
+          --parameters environmentName=${{ env.ENVIRONMENT }} \
+                      location="${{ env.LOCATION }}" \
+          --output json)
+        
+        echo "Deployment output: $deployment_output"
+        
+        # Extract outputs
+        app_service_url=$(echo $deployment_output | jq -r '.properties.outputs.appServiceUrl.value')
+        app_service_name=$(echo $deployment_output | jq -r '.properties.outputs.appServiceName.value')
+        
+        echo "app-service-url=$app_service_url" >> $GITHUB_OUTPUT
+        echo "app-service-name=$app_service_name" >> $GITHUB_OUTPUT
+
+    - name: Display deployment results
+      run: |
+        echo "🚀 Infrastructure deployed successfully!"
+        echo "🌐 App Service URL: ${{ steps.deploy.outputs.app-service-url }}"
+        echo "📦 App Service Name: ${{ steps.deploy.outputs.app-service-name }}"
+        echo "🏗️  Resource Group: ${{ env.AZURE_RESOURCE_GROUP }}"
+        echo ""
+        echo "Next steps:"
+        echo "1. Run the 'Deploy Application' workflow to deploy your app"
+        echo "2. Visit the URL above to see your deployed application"
+
+    - name: Azure Logout
+      if: always()
+      run: az logout
