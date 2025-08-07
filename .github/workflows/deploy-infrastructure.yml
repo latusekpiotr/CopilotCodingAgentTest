@@ -63,20 +63,34 @@ jobs:
         # Extract outputs
         app_service_url=$(echo $deployment_output | jq -r '.properties.outputs.appServiceUrl.value')
         app_service_name=$(echo $deployment_output | jq -r '.properties.outputs.appServiceName.value')
+        app_insights_name=$(echo $deployment_output | jq -r '.properties.outputs.applicationInsightsName.value')
+        app_insights_connection_string=$(echo $deployment_output | jq -r '.properties.outputs.applicationInsightsConnectionString.value')
+        log_analytics_name=$(echo $deployment_output | jq -r '.properties.outputs.logAnalyticsWorkspaceName.value')
         
         echo "app-service-url=$app_service_url" >> $GITHUB_OUTPUT
         echo "app-service-name=$app_service_name" >> $GITHUB_OUTPUT
+        echo "app-insights-name=$app_insights_name" >> $GITHUB_OUTPUT
+        echo "log-analytics-name=$log_analytics_name" >> $GITHUB_OUTPUT
 
     - name: Display deployment results
       run: |
         echo "🚀 Infrastructure deployed successfully!"
         echo "🌐 App Service URL: ${{ steps.deploy.outputs.app-service-url }}"
         echo "📦 App Service Name: ${{ steps.deploy.outputs.app-service-name }}"
+        echo "📊 Application Insights: ${{ steps.deploy.outputs.app-insights-name }}"
+        echo "📝 Log Analytics Workspace: ${{ steps.deploy.outputs.log-analytics-name }}"
         echo "🏗️  Resource Group: ${{ env.AZURE_RESOURCE_GROUP }}"
+        echo ""
+        echo "🔍 Monitoring & Diagnostics:"
+        echo "- Application Insights and Log Analytics Workspace have been configured"
+        echo "- App Service diagnostic logs are automatically sent to Application Insights"
+        echo "- Use Azure Portal to access Application Insights for detailed application monitoring"
+        echo "- View logs and metrics to troubleshoot any application issues"
         echo ""
         echo "Next steps:"
         echo "1. Run the 'Deploy Application' workflow to deploy your app"
         echo "2. Visit the URL above to see your deployed application"
+        echo "3. Check Application Insights in Azure Portal for monitoring data"
 
     - name: Azure Logout
       if: always()
