@@ -22,7 +22,7 @@ resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09
     sku: {
       name: 'PerGB2018' // Pay-per-GB tier (Free tier deprecated for new workspaces)
     }
-    retentionInDays: 7
+    retentionInDays: 30
     features: {
       legacy: 0
       searchVersion: 1
@@ -130,7 +130,7 @@ resource appServiceDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01
         category: 'AppServiceHTTPLogs'
         enabled: true
         retentionPolicy: {
-          days: 7
+          days: 30
           enabled: true
         }
       }
@@ -138,7 +138,7 @@ resource appServiceDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01
         category: 'AppServiceConsoleLogs'
         enabled: true
         retentionPolicy: {
-          days: 7
+          days: 30
           enabled: true
         }
       }
@@ -146,7 +146,7 @@ resource appServiceDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01
         category: 'AppServiceAppLogs'
         enabled: true
         retentionPolicy: {
-          days: 7
+          days: 30
           enabled: true
         }
       }
@@ -154,7 +154,7 @@ resource appServiceDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01
         category: 'AppServiceAuditLogs'
         enabled: true
         retentionPolicy: {
-          days: 7
+          days: 30
           enabled: true
         }
       }
@@ -162,7 +162,7 @@ resource appServiceDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01
         category: 'AppServiceIPSecAuditLogs'
         enabled: true
         retentionPolicy: {
-          days: 7
+          days: 30
           enabled: true
         }
       }
@@ -170,7 +170,7 @@ resource appServiceDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01
         category: 'AppServicePlatformLogs'
         enabled: true
         retentionPolicy: {
-          days: 7
+          days: 30
           enabled: true
         }
       }
@@ -180,7 +180,7 @@ resource appServiceDiagnostics 'Microsoft.Insights/diagnosticSettings@2021-05-01
         category: 'AllMetrics'
         enabled: true
         retentionPolicy: {
-          days: 7
+          days: 30
           enabled: true
         }
       }
