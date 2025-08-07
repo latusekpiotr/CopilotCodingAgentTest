@@ -14,13 +14,13 @@ var appServiceName = '${appName}-app-${environmentName}-${uniqueSuffix}'
 var logAnalyticsWorkspaceName = '${appName}-logs-${environmentName}-${uniqueSuffix}'
 var applicationInsightsName = '${appName}-insights-${environmentName}-${uniqueSuffix}'
 
-// Log Analytics Workspace (Free tier for cost efficiency)
+// Log Analytics Workspace (PerGB2018 tier - lowest cost option for new workspaces)
 resource logAnalyticsWorkspace 'Microsoft.OperationalInsights/workspaces@2023-09-01' = {
   name: logAnalyticsWorkspaceName
   location: location
   properties: {
     sku: {
-      name: 'Free' // Free tier: 500 MB/day limit, 7-day retention
+      name: 'PerGB2018' // Pay-per-GB tier (Free tier deprecated for new workspaces)
     }
     retentionInDays: 7
     features: {

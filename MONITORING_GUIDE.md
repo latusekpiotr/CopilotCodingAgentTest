@@ -4,10 +4,10 @@ This guide explains how to use the Azure monitoring and diagnostics capabilities
 
 ## Overview
 
-The infrastructure now includes comprehensive monitoring using Azure's cheapest tiers:
+The infrastructure now includes comprehensive monitoring using Azure's cost-effective tiers:
 
 - **Application Insights** (Free tier: 1GB/month free)
-- **Log Analytics Workspace** (Free tier: 5GB/month free) 
+- **Log Analytics Workspace** (PerGB2018 tier: Pay-per-GB, cost-effective for low-volume applications) 
 - **App Service Diagnostic Logs** (Included with App Service)
 
 ## Monitoring Components
@@ -164,12 +164,14 @@ The application now includes detailed logging for:
 
 ## Cost Management
 
-All monitoring resources use the cheapest tiers:
+All monitoring resources use cost-effective tiers:
 
 - **Application Insights**: Free tier (1GB/month)
-- **Log Analytics**: Free tier (5GB/month) 
+- **Log Analytics**: PerGB2018 tier (pay-per-GB ingestion, cost-effective for small applications)
 - **Retention**: 7 days to minimize storage costs
 - **No premium features**: Basic monitoring without expensive add-ons
+
+**Note**: Azure deprecated the Free tier for new Log Analytics workspaces. The PerGB2018 tier is now the most cost-effective option for new deployments, with charges only for data ingested above the Application Insights free tier.
 
 ## Setting Up Alerts (Optional)
 
