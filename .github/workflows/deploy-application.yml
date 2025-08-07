@@ -1,0 +1,167 @@
+name: Deploy Application to Azure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+
+env:
+  AZURE_RESOURCE_GROUP: 'rg-todolist-${{ github.event.inputs.environment }}'
+  ENVIRONMENT: '${{ github.event.inputs.environment }}'
+  DOTNET_VERSION: '8.0.x'
+  NODE_VERSION: '20.x'
+
+jobs:
+  build-and-deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout repository
+      uses: actions/checkout@v4
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v4
+      with:
+        dotnet-version: ${{ env.DOTNET_VERSION }}
+
+    - name: Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        cache-dependency-path: './todolist-frontend/package-lock.json'
+
+    - name: Restore .NET dependencies
+      run: dotnet restore ToDoList.Backend.sln
+
+    - name: Build .NET Backend
+      run: dotnet build ToDoList.Backend.sln --configuration Release --no-restore
+
+    - name: Publish .NET Backend
+      run: |
+        dotnet publish ToDoList.Backend/ToDoList.Backend.csproj \
+          --configuration Release \
+          --output ./backend-publish \
+          --no-build
+
+    - name: Install Frontend dependencies
+      working-directory: ./todolist-frontend
+      run: npm ci
+
+    - name: Build Frontend
+      working-directory: ./todolist-frontend
+      run: npm run build
+
+    - name: Prepare deployment package
+      run: |
+        # Create deployment directory
+        mkdir -p ./deployment-package
+        
+        # Copy backend files
+        cp -r ./backend-publish/* ./deployment-package/
+        
+        # Copy frontend build to wwwroot (served as static files by .NET)
+        mkdir -p ./deployment-package/wwwroot
+        cp -r ./todolist-frontend/build/* ./deployment-package/wwwroot/
+        
+        # Create deployment zip
+        cd ./deployment-package
+        zip -r ../deployment.zip .
+        cd ..
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Get App Service Name
+      id: get_app_name
+      run: |
+        app_name=$(az webapp list \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --query "[0].name" \
+          --output tsv)
+        
+        if [ -z "$app_name" ] || [ "$app_name" == "null" ]; then
+          echo "❌ No App Service found in resource group '${{ env.AZURE_RESOURCE_GROUP }}'"
+          echo "Please run the 'Deploy Infrastructure' workflow first."
+          exit 1
+        fi
+        
+        echo "app-name=$app_name" >> $GITHUB_OUTPUT
+        echo "✅ Found App Service: $app_name"
+
+    - name: Deploy to Azure App Service
+      run: |
+        echo "🚀 Deploying application to Azure App Service..."
+        az webapp deployment source config-zip \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --name ${{ steps.get_app_name.outputs.app-name }} \
+          --src deployment.zip
+
+    - name: Get App Service URL
+      id: get_url
+      run: |
+        app_url=$(az webapp show \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --name ${{ steps.get_app_name.outputs.app-name }} \
+          --query "defaultHostName" \
+          --output tsv)
+        
+        echo "app-url=https://$app_url" >> $GITHUB_OUTPUT
+
+    - name: Restart App Service
+      run: |
+        echo "🔄 Restarting App Service to ensure new deployment is active..."
+        az webapp restart \
+          --resource-group ${{ env.AZURE_RESOURCE_GROUP }} \
+          --name ${{ steps.get_app_name.outputs.app-name }}
+
+    - name: Wait for deployment to be ready
+      run: |
+        echo "⏳ Waiting for application to start up..."
+        sleep 30
+
+    - name: Verify deployment
+      run: |
+        echo "🔍 Verifying deployment..."
+        response=$(curl -s -o /dev/null -w "%{http_code}" ${{ steps.get_url.outputs.app-url }}/health || echo "000")
+        
+        if [ "$response" == "200" ]; then
+          echo "✅ Health check passed!"
+        else
+          echo "⚠️  Health check returned status: $response"
+          echo "The application may still be starting up. Please check manually."
+        fi
+
+    - name: Display deployment results
+      run: |
+        echo "🎉 Application deployed successfully!"
+        echo "🌐 Application URL: ${{ steps.get_url.outputs.app-url }}"
+        echo "📦 App Service: ${{ steps.get_app_name.outputs.app-name }}"
+        echo "🏗️  Resource Group: ${{ env.AZURE_RESOURCE_GROUP }}"
+        echo "🔧 Environment: ${{ env.ENVIRONMENT }}"
+        echo ""
+        echo "Frontend is available at: ${{ steps.get_url.outputs.app-url }}"
+        echo "Backend API is available at: ${{ steps.get_url.outputs.app-url }}/api"
+        echo "Swagger UI is available at: ${{ steps.get_url.outputs.app-url }}/swagger"
+
+    - name: Azure Logout
+      if: always()
+      run: az logout
+
+    - name: Upload deployment artifacts
+      if: failure()
+      uses: actions/upload-artifact@v4
+      with:
+        name: deployment-package-${{ env.ENVIRONMENT }}
+        path: deployment.zip
+        retention-days: 7

@@ -1,0 +1,97 @@
+name: Destroy Azure Infrastructure
+
+on:
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to destroy'
+        required: true
+        default: 'dev'
+        type: choice
+        options:
+          - dev
+          - staging
+          - prod
+      confirm_destroy:
+        description: 'Type "DESTROY" to confirm deletion'
+        required: true
+        type: string
+
+env:
+  AZURE_RESOURCE_GROUP: 'rg-todolist-${{ github.event.inputs.environment }}'
+  ENVIRONMENT: '${{ github.event.inputs.environment }}'
+
+jobs:
+  destroy-infrastructure:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Validate destruction confirmation
+      run: |
+        if [ "${{ github.event.inputs.confirm_destroy }}" != "DESTROY" ]; then
+          echo "❌ Destruction not confirmed. You must type 'DESTROY' exactly to proceed."
+          exit 1
+        fi
+        echo "✅ Destruction confirmed. Proceeding with infrastructure deletion."
+
+    - name: Azure Login
+      uses: azure/login@v2
+      with:
+        creds: ${{ secrets.AZURE_CREDENTIALS }}
+
+    - name: Check if Resource Group exists
+      id: check_rg
+      run: |
+        if az group show --name ${{ env.AZURE_RESOURCE_GROUP }} --output none 2>/dev/null; then
+          echo "exists=true" >> $GITHUB_OUTPUT
+          echo "✅ Resource group '${{ env.AZURE_RESOURCE_GROUP }}' found."
+        else
+          echo "exists=false" >> $GITHUB_OUTPUT
+          echo "ℹ️  Resource group '${{ env.AZURE_RESOURCE_GROUP }}' does not exist."
+        fi
+
+    - name: List resources to be deleted
+      if: steps.check_rg.outputs.exists == 'true'
+      run: |
+        echo "📋 Resources that will be deleted:"
+        az resource list --resource-group ${{ env.AZURE_RESOURCE_GROUP }} --output table
+
+    - name: Delete Resource Group
+      if: steps.check_rg.outputs.exists == 'true'
+      run: |
+        echo "🗑️  Deleting resource group '${{ env.AZURE_RESOURCE_GROUP }}'..."
+        az group delete \
+          --name ${{ env.AZURE_RESOURCE_GROUP }} \
+          --yes \
+          --no-wait
+        
+        echo "🔄 Deletion initiated. This may take several minutes to complete."
+        echo "You can monitor the deletion progress in the Azure Portal."
+
+    - name: Verify deletion (optional check)
+      if: steps.check_rg.outputs.exists == 'true'
+      run: |
+        echo "⏳ Waiting 30 seconds before checking deletion status..."
+        sleep 30
+        
+        if az group show --name ${{ env.AZURE_RESOURCE_GROUP }} --output none 2>/dev/null; then
+          echo "⏳ Resource group deletion is still in progress."
+          echo "This is normal for large resource groups. Check Azure Portal for completion status."
+        else
+          echo "✅ Resource group '${{ env.AZURE_RESOURCE_GROUP }}' has been deleted successfully."
+        fi
+
+    - name: Display completion message
+      run: |
+        echo "🏁 Infrastructure destruction workflow completed!"
+        echo "Environment: ${{ env.ENVIRONMENT }}"
+        echo "Resource Group: ${{ env.AZURE_RESOURCE_GROUP }}"
+        if [ "${{ steps.check_rg.outputs.exists }}" == "true" ]; then
+          echo "Status: Deletion initiated (may take several minutes to complete)"
+        else
+          echo "Status: Resource group did not exist"
+        fi
+
+    - name: Azure Logout
+      if: always()
+      run: az logout

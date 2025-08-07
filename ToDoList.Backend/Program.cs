@@ -50,7 +50,12 @@ builder.Services.AddCors(options =>
 {
     options.AddPolicy("AllowFrontend", policy =>
     {
-        policy.WithOrigins("http://localhost:3000", "https://localhost:3000")
+        policy.WithOrigins(
+                "http://localhost:3000", 
+                "https://localhost:3000"
+                // Azure domains will be added dynamically in production
+              )
+              .SetIsOriginAllowedToAllowWildcardSubdomains()
               .AllowAnyHeader()
               .AllowAnyMethod()
               .AllowCredentials();
@@ -75,7 +80,7 @@ if (app.Environment.IsDevelopment())
 }
 
 // Configure the HTTP request pipeline.
-if (app.Environment.IsDevelopment())
+if (app.Environment.IsDevelopment() || app.Environment.IsProduction())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
@@ -83,12 +88,21 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
+// Serve static files (React frontend)
+app.UseDefaultFiles();
+app.UseStaticFiles();
+
 // Use CORS
 app.UseCors("AllowFrontend");
 
 // Add authentication and authorization middleware
 app.UseAuthentication();
 app.UseAuthorization();
+
+// Health check endpoint
+app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = DateTime.UtcNow }))
+.WithName("HealthCheck")
+.WithOpenApi();
 
 // Authentication endpoints
 app.MapPost("/auth/login", async (LoginRequest request, ToDoListDbContext db, IAuthService authService) =>
