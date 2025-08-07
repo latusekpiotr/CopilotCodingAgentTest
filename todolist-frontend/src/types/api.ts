@@ -19,6 +19,15 @@ export interface User {
   isAdmin: boolean;
 }
 
+// Debug-only interface that includes password hash for troubleshooting
+export interface DebugUser {
+  id: number;
+  name: string;
+  username: string;
+  passwordHash: string;
+  isAdmin: boolean;
+}
+
 export interface CreateUserRequest {
   name: string;
   username: string;
