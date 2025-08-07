@@ -1,6 +1,108 @@
 @ToDoList.Backend_HostAddress = http://localhost:5011
 
-GET {{ToDoList.Backend_HostAddress}}/weatherforecast/
-Accept: application/json
+# Authentication Endpoints
+
+### Login as Admin (Alice)
+POST {{ToDoList.Backend_HostAddress}}/auth/login
+Content-Type: application/json
+
+{
+  "username": "alice",
+  "password": "password123"
+}
+
+###
+
+### Login as Regular User (Bob)
+POST {{ToDoList.Backend_HostAddress}}/auth/login
+Content-Type: application/json
+
+{
+  "username": "bob",
+  "password": "password123"
+}
+
+###
+
+# User Management (Admin Only)
+
+### Create New User (requires admin token)
+POST {{ToDoList.Backend_HostAddress}}/users
+Content-Type: application/json
+Authorization: Bearer YOUR_ADMIN_TOKEN_HERE
+
+{
+  "name": "New User",
+  "username": "newuser",
+  "password": "password123",
+  "isAdmin": false
+}
+
+###
+
+### Update User (requires admin token)
+PUT {{ToDoList.Backend_HostAddress}}/users/1
+Content-Type: application/json
+Authorization: Bearer YOUR_ADMIN_TOKEN_HERE
+
+{
+  "name": "Updated Name"
+}
+
+###
+
+### Delete User (requires admin token)
+DELETE {{ToDoList.Backend_HostAddress}}/users/4
+Authorization: Bearer YOUR_ADMIN_TOKEN_HERE
+
+###
+
+# List Management (Authenticated Users)
+
+### Create List (user can only create for themselves unless admin)
+POST {{ToDoList.Backend_HostAddress}}/lists
+Content-Type: application/json
+Authorization: Bearer YOUR_USER_TOKEN_HERE
+
+{
+  "name": "My New List",
+  "ownerID": 2
+}
+
+###
+
+### Delete List (only owner or admin)
+DELETE {{ToDoList.Backend_HostAddress}}/lists/1
+Authorization: Bearer YOUR_USER_TOKEN_HERE
+
+###
+
+# Item Management (Authenticated Users)
+
+### Add Item to List (only list owner or admin)
+POST {{ToDoList.Backend_HostAddress}}/lists/1/items
+Content-Type: application/json
+Authorization: Bearer YOUR_USER_TOKEN_HERE
+
+{
+  "name": "New Todo Item"
+}
+
+###
+
+### Update Item (only list owner or admin)
+PUT {{ToDoList.Backend_HostAddress}}/items/1
+Content-Type: application/json
+Authorization: Bearer YOUR_USER_TOKEN_HERE
+
+{
+  "name": "Updated Todo Item"
+}
+
+###
+
+### Delete Item (only list owner or admin)
+DELETE {{ToDoList.Backend_HostAddress}}/items/1
+Authorization: Bearer YOUR_USER_TOKEN_HERE
 
 ###

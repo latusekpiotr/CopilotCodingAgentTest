@@ -1,7 +1,7 @@
 namespace ToDoList.Backend.Contracts;
 
-public record CreateUserRequest(string Name);
+public record CreateUserRequest(string Name, string Username, string Password, bool IsAdmin = false);
 
 public record EditUserRequest(string Name);
 
-public record UserResponse(int Id, string Name);
+public record UserResponse(int Id, string Name, string Username, bool IsAdmin);
