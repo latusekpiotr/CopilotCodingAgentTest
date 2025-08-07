@@ -60,3 +60,14 @@ MigrationBackup/
 *.db
 *.db-shm
 *.db-wal
+
+# React frontend
+todolist-frontend/node_modules/
+todolist-frontend/build/
+todolist-frontend/.env.local
+todolist-frontend/.env.development.local
+todolist-frontend/.env.test.local
+todolist-frontend/.env.production.local
+todolist-frontend/npm-debug.log*
+todolist-frontend/yarn-debug.log*
+todolist-frontend/yarn-error.log*
