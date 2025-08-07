@@ -120,6 +120,9 @@ When working in this repository:
 3. **Database operations:**
    ```bash
    cd ToDoList.Backend
+   # Install EF Core tools if not already installed
+   dotnet tool install --global dotnet-ef
+   
    # Create new migration
    dotnet ef migrations add <MigrationName>
    
@@ -128,6 +131,9 @@ When working in this repository:
    
    # Remove last migration (if not applied)
    dotnet ef migrations remove
+   
+   # List existing migrations
+   dotnet ef migrations list
    ```
 
 ### Frontend Development (React TypeScript)
