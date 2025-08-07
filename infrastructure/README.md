@@ -58,6 +58,9 @@ Example format:
 - Resource Group
 - App Service Plan (Basic B1)
 - App Service (Linux, .NET 8.0)
+- Application Insights (Free tier)
+- Log Analytics Workspace (Free tier)
+- Diagnostic Settings (App Service logs → Application Insights)
 
 **Usage**:
 1. Go to Actions tab in GitHub
@@ -124,11 +127,14 @@ Example format:
 ### Azure Resources
 ```
 Resource Group
-└── App Service Plan (Basic B1)
-    └── App Service (Linux)
-        ├── Backend API (/api/*)
-        ├── Frontend (/)
-        └── Swagger (/swagger)
+├── App Service Plan (Basic B1)
+├── Log Analytics Workspace (Free tier)
+├── Application Insights (Free tier)
+└── App Service (Linux)
+    ├── Backend API (/api/*)
+    ├── Frontend (/)
+    ├── Swagger (/swagger)
+    └── Diagnostics → Application Insights
 ```
 
 ### Deployment Package
@@ -142,9 +148,11 @@ deployment.zip
 ## Cost Optimization
 
 - **App Service Plan**: Basic B1 tier (~$13/month)
+- **Application Insights**: Free tier (1GB/month free, then ~$2.30/GB)
+- **Log Analytics Workspace**: Free tier (5GB/month free)
 - **No API Management**: Avoided due to high cost
-- **No diagnostics**: Can be added later if needed
 - **Auto-scale disabled**: Keeps costs predictable
+- **7-day retention**: Keeps storage costs minimal
 
 ## Security Features
 
@@ -160,6 +168,40 @@ After deployment, your application will be available at:
 - **Frontend**: `https://{app-name}.azurewebsites.net/`
 - **API**: `https://{app-name}.azurewebsites.net/api/`
 - **Swagger**: `https://{app-name}.azurewebsites.net/swagger/`
+
+### Application Insights & Monitoring
+
+The infrastructure includes comprehensive monitoring capabilities:
+
+- **Application Insights**: Tracks application performance, errors, and custom telemetry
+- **Log Analytics Workspace**: Centralized logging with powerful query capabilities
+- **App Service Diagnostics**: HTTP logs, console logs, application logs, and platform logs
+- **Automatic Telemetry**: .NET application automatically sends telemetry to Application Insights
+
+**Accessing Monitoring Data:**
+1. Go to Azure Portal → Resource Groups → `rg-todolist-{environment}`
+2. Click on the Application Insights resource
+3. Use "Logs" for KQL queries, "Failures" for errors, "Performance" for response times
+
+**Sample KQL Queries:**
+```kql
+// View application logs
+traces
+| where timestamp > ago(1h)
+| order by timestamp desc
+
+// View failed requests
+requests
+| where success == false
+| where timestamp > ago(1h)
+| order by timestamp desc
+
+// View custom events (login attempts)
+customEvents
+| where name == "LoginAttempt"
+| where timestamp > ago(1h)
+| order by timestamp desc
+```
 
 ## Troubleshooting
 
@@ -181,12 +223,20 @@ After deployment, your application will be available at:
    - Check App Service logs in Azure Portal
    - Verify deployment package size (< 2GB limit)
 
+5. **Login issues with demo credentials**
+   - Check Application Insights logs for authentication errors
+   - Query `traces` table for database seeding logs
+   - Check `customEvents` for login attempt details
+   - Verify database contains seeded users (alice, bob, carol)
+
 ### Getting Help
 
 1. Check workflow logs in GitHub Actions
 2. Review App Service logs in Azure Portal
-3. Verify resource status in Azure Portal
-4. Test local builds before deploying
+3. **Check Application Insights for detailed application logs and telemetry**
+4. **Use Log Analytics workspace for advanced log querying**
+5. Verify resource status in Azure Portal
+6. Test local builds before deploying
 
 ## Development Workflow
 
@@ -213,6 +263,7 @@ After successful deployment:
 
 1. **Custom Domain**: Configure custom domain in Azure Portal
 2. **SSL Certificate**: Add custom SSL if using custom domain
-3. **Monitoring**: Enable Application Insights for detailed monitoring
-4. **Scaling**: Consider upgrading to Standard tier for auto-scaling
-5. **Backup**: Configure App Service backup for production
+3. **Monitor Performance**: Use Application Insights to monitor application performance and errors
+4. **Set up Alerts**: Configure Application Insights alerts for critical issues
+5. **Scaling**: Consider upgrading to Standard tier for auto-scaling
+6. **Backup**: Configure App Service backup for production

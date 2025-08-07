@@ -10,6 +10,9 @@ using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Add Application Insights telemetry
+builder.Services.AddApplicationInsightsTelemetry(builder.Configuration);
+
 // Add services to the container.
 builder.Services.AddDbContext<ToDoListDbContext>(options =>
 {
@@ -21,8 +24,8 @@ builder.Services.AddDbContext<ToDoListDbContext>(options =>
         
         if (isAzure)
         {
-            // Use temporary directory for SQLite in Azure dev environment due to file system constraints
-            options.UseSqlite("Data Source=/tmp/todolist_dev.db");
+            // Use InMemory database for Azure dev environment to avoid file system issues
+            options.UseInMemoryDatabase("TodoListDb");
         }
         else
         {
@@ -95,14 +98,27 @@ if (app.Environment.IsDevelopment())
     using (var scope = app.Services.CreateScope())
     {
         var context = scope.ServiceProvider.GetRequiredService<ToDoListDbContext>();
+        var logger = scope.ServiceProvider.GetRequiredService<ILogger<Program>>();
+        
+        logger.LogInformation("Ensuring database is created...");
         await context.Database.EnsureCreatedAsync();
         
         // For Azure environments, always seed data since /tmp is cleared on restart
         // For local development, only seed if database is empty  
         var isAzure = !string.IsNullOrEmpty(app.Configuration["WEBSITE_SITE_NAME"]);
-        if (isAzure || !await context.Users.AnyAsync())
+        var userCount = await context.Users.CountAsync();
+        
+        logger.LogInformation("Running in Azure: {IsAzure}, User count: {UserCount}", isAzure, userCount);
+        
+        if (isAzure || userCount == 0)
         {
-            await SeedDevelopmentDataAsync(context);
+            logger.LogInformation("Seeding development data...");
+            await SeedDevelopmentDataAsync(context, logger);
+            logger.LogInformation("Development data seeding completed.");
+        }
+        else
+        {
+            logger.LogInformation("Database already contains data, skipping seeding.");
         }
     }
 }
@@ -133,15 +149,34 @@ app.MapGet("/health", () => Results.Ok(new { status = "healthy", timestamp = Dat
 .WithOpenApi();
 
 // Authentication endpoints
-app.MapPost("/auth/login", async (LoginRequest request, ToDoListDbContext db, IAuthService authService) =>
+app.MapPost("/auth/login", async (LoginRequest request, ToDoListDbContext db, IAuthService authService, ILogger<Program> logger) =>
 {
+    logger.LogInformation("Login attempt for username: {Username}", request.Username);
+    
+    // Log database connection info (without sensitive data)
+    var userCount = await db.Users.CountAsync();
+    logger.LogInformation("Total users in database: {UserCount}", userCount);
+    
     var user = await db.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
-    if (user is null || !authService.VerifyPassword(request.Password, user.PasswordHash))
+    if (user is null)
     {
+        logger.LogWarning("User not found: {Username}", request.Username);
         return Results.Unauthorized();
     }
     
+    logger.LogInformation("User found: {Username}, ID: {UserId}", user.Username, user.Id);
+    
+    if (!authService.VerifyPassword(request.Password, user.PasswordHash))
+    {
+        logger.LogWarning("Password verification failed for user: {Username}", request.Username);
+        return Results.Unauthorized();
+    }
+    
+    logger.LogInformation("Password verified successfully for user: {Username}", request.Username);
+    
     var token = authService.GenerateJwtToken(user.Id, user.Username, user.IsAdmin);
+    logger.LogInformation("JWT token generated successfully for user: {Username}", request.Username);
+    
     return Results.Ok(new LoginResponse(token, user.Id, user.Name, user.IsAdmin));
 })
 .WithName("Login")
@@ -446,13 +481,17 @@ app.MapDelete("/items/{id}", async (int id, ToDoListDbContext db, ClaimsPrincipa
 app.Run();
 
 // Data seeding method for development environment
-static async Task SeedDevelopmentDataAsync(ToDoListDbContext context)
+static async Task SeedDevelopmentDataAsync(ToDoListDbContext context, ILogger<Program> logger)
 {
     // Check if data already exists
-    if (await context.Users.AnyAsync())
+    var existingUserCount = await context.Users.CountAsync();
+    if (existingUserCount > 0)
     {
+        logger.LogInformation("Database already contains {UserCount} users, skipping seeding", existingUserCount);
         return; // Database has been seeded
     }
+    
+    logger.LogInformation("Starting database seeding...");
 
     // Create auth service for password hashing
     var authService = new ToDoList.Backend.Services.AuthService(new ConfigurationBuilder().Build());
@@ -485,6 +524,7 @@ static async Task SeedDevelopmentDataAsync(ToDoListDbContext context)
 
     context.Users.AddRange(users);
     await context.SaveChangesAsync();
+    logger.LogInformation("Created {UserCount} users: {Usernames}", users.Length, string.Join(", ", users.Select(u => u.Username)));
 
     // Create sample lists
     var lists = new[]
@@ -497,6 +537,7 @@ static async Task SeedDevelopmentDataAsync(ToDoListDbContext context)
 
     context.Lists.AddRange(lists);
     await context.SaveChangesAsync();
+    logger.LogInformation("Created {ListCount} lists", lists.Length);
 
     // Create sample items
     var items = new[]
@@ -524,4 +565,9 @@ static async Task SeedDevelopmentDataAsync(ToDoListDbContext context)
 
     context.Items.AddRange(items);
     await context.SaveChangesAsync();
+    logger.LogInformation("Created {ItemCount} items", items.Length);
+    
+    // Final verification
+    var finalUserCount = await context.Users.CountAsync();
+    logger.LogInformation("Database seeding completed successfully. Total users: {UserCount}", finalUserCount);
 }
