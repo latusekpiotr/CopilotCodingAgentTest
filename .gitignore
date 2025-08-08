@@ -76,3 +76,6 @@ todolist-frontend/yarn-error.log*
 deployment-package/
 deployment.zip
 backend-publish/
+
+# Infrastructure generated files
+infrastructure/*.json
