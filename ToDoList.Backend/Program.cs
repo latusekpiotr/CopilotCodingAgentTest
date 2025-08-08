@@ -10,9 +10,6 @@ using System.Security.Claims;
 
 var builder = WebApplication.CreateBuilder(args);
 
-// Add Application Insights telemetry
-builder.Services.AddApplicationInsightsTelemetry(builder.Configuration);
-
 // Add services to the container.
 builder.Services.AddDbContext<ToDoListDbContext>(options =>
 {
